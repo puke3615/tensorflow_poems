@@ -28,7 +28,7 @@ end_token = 'E'
 def process_poems(file_name):
     # 诗集
     poems = []
-    with open(file_name, "r", encoding='utf-8', ) as f:
+    with open(file_name, "r") as f:
         for line in f.readlines():
             try:
                 title, content = line.strip().split(':')
@@ -48,7 +48,7 @@ def process_poems(file_name):
     # 统计每个字出现次数
     all_words = []
     for poem in poems:
-        all_words += [word for word in poem]
+        all_words += [word for word in poem.decode('utf-8')]
     # 这里根据包含了每个字对应的频率
     counter = collections.Counter(all_words)
     count_pairs = sorted(counter.items(), key=lambda x: -x[1])

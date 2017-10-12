@@ -96,7 +96,7 @@ def to_word(predict, vocabs):
     t = np.cumsum(predict)
     s = np.sum(predict)
     sample = int(np.searchsorted(t, np.random.rand(1) * s))
-    if sample > len(vocabs):
+    if sample >= len(vocabs):
         sample = len(vocabs) - 1
     return vocabs[sample]
 
@@ -129,6 +129,10 @@ def gen_poem(begin_word):
             word = to_word(predict, vocabularies)
         poem = ''
         while word != end_token:
+            try:
+                word = unicode(word, 'utf-8')
+            except:
+                pass
             poem += word
             x = np.zeros((1, 1))
             x[0, 0] = word_int_map[word]
@@ -140,6 +144,7 @@ def gen_poem(begin_word):
 
 
 def pretty_print_poem(poem):
+    print poem
     poem_sentences = poem.split('。')
     for s in poem_sentences:
         if s != '' and len(s) > 10:
@@ -153,7 +158,7 @@ def main(is_train):
     else:
         print('[INFO] write tang poem...')
 
-        begin_word = input('全新藏头诗上线，输入起始字:')
+        begin_word = raw_input('全新藏头诗上线，输入起始字:')
         poem2 = gen_poem(begin_word)
         pretty_print_poem(poem2)
 
