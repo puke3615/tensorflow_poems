@@ -23,19 +23,21 @@ import numpy as np
 def rnn_model(model, input_data, output_data, vocab_size, rnn_size=128, num_layers=2, batch_size=64,
               learning_rate=0.01):
     """
-    construct rnn seq2seq model.
+    构造rnn的序列模型
     :param model: model class
-    :param input_data: input data placeholder
-    :param output_data: output data placeholder
-    :param vocab_size:
-    :param rnn_size:
-    :param num_layers:
-    :param batch_size:
-    :param learning_rate:
-    :return:
+    :param input_data: 输入数据占位符
+    :param output_data: 输出数据占位符
+    :param vocab_size: words的总长度
+    :param rnn_size: rnn的units数
+    :param num_layers: rnn中cell的层数
+    :param batch_size: 每个batch的样本数量
+    :param learning_rate: 学习率
+    :return: 模型状态集
     """
+    # 声明模型状态集, 由于模型需要返回多个相关值, 故以map集合的形式向外部返回
     end_points = {}
 
+    # 选择rnn的具体cell类型, 提供了rnn、gru、lstm三种
     if model == 'rnn':
         cell_fun = tf.contrib.rnn.BasicRNNCell
     elif model == 'gru':
@@ -43,23 +45,40 @@ def rnn_model(model, input_data, output_data, vocab_size, rnn_size=128, num_laye
     elif model == 'lstm':
         cell_fun = tf.contrib.rnn.BasicLSTMCell
 
+    # 构造具体的cell
     cell = cell_fun(rnn_size, state_is_tuple=True)
+    # 将单层的cell变为更深的cell, 以表征更复杂的关联关系
     cell = tf.contrib.rnn.MultiRNNCell([cell] * num_layers, state_is_tuple=True)
 
+    # 初始化cell的状态
     if output_data is not None:
+        # 训练时batch容量为batch_size
         initial_state = cell.zero_state(batch_size, tf.float32)
     else:
+        # 使用时batch容量为1
         initial_state = cell.zero_state(1, tf.float32)
 
+    # tensorflow对于lookup_embedding的操作只能再cpu上进行
     with tf.device("/cpu:0"):
+        # 构造(vocab_size + 1, run_size)的Tensor
         embedding = tf.get_variable('embedding', initializer=tf.random_uniform(
             [vocab_size + 1, rnn_size], -1.0, 1.0))
+
+        # embedding_lookup函数
+        # output = embedding_lookup(embedding, ids): 将ids里的element替换为embedding中对应element位的值
+        # 即: embedding: [[1, 2], [3, 4], [5, 6]]  ids: [1, 2]  则outputs: [[3, 4], [5, 6]]
+        # 类比one_hot, 只是这里是x_hot
+        # embedding: (3, 2)  ids: (10, )  outputs: (10, 2)
+
+        # 处理之后的shape为(batch_size, n_steps, rnn_size)
         inputs = tf.nn.embedding_lookup(embedding, input_data)
 
-    # [batch_size, ?, rnn_size] = [64, ?, 128]
+    # (batch_size, n_steps, rnn_size) => (batch_size, n_steps, rnn_size)
     outputs, last_state = tf.nn.dynamic_rnn(cell, inputs, initial_state=initial_state)
+    # (batch_size, n_steps, rnn_size) => (batch_size x n_steps, rnn_size)
     output = tf.reshape(outputs, [-1, rnn_size])
 
+    # (batch_size x n_steps, rnn_size) => (batch_size x n_steps, vocab_size + 1)
     weights = tf.Variable(tf.truncated_normal([rnn_size, vocab_size + 1]))
     bias = tf.Variable(tf.zeros(shape=[vocab_size + 1]))
     logits = tf.nn.bias_add(tf.matmul(output, weights), bias=bias)
